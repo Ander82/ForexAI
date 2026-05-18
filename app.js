@@ -499,8 +499,8 @@ async function runQuickAnalysis() {
   const usdHist = state.history.USD.slice(-5).map(d => d.price).join(', ');
   const eurHist = state.history.EUR.slice(-5).map(d => d.price).join(', ');
   
-  const prompt = `Você é um analista financeiro sênior especializado em câmbio (BRL).
-Contexto atual:
+  const prompt = `Você é um analista financeiro sênior especializado em câmbio. O objetivo do usuário é COMPRAR Dólar ou Euro pelo menor preço possível em Reais (BRL).
+Contexto atual (cotações recentes e de hoje):
 - USD/BRL últimos 5 dias: ${usdHist} (Atual: ${state.rates.USD.toFixed(3)})
 - EUR/BRL últimos 5 dias: ${eurHist} (Atual: ${state.rates.EUR.toFixed(3)})
 
@@ -508,9 +508,11 @@ Regras aprendidas pelo modelo:
 ${state.rules.map(r => `- ${r.desc}`).join('\n') || "Nenhuma regra customizada ainda."}
 
 Crie um resumo de 2 parágrafos.
-Parágrafo 1: Análise do momento atual (tendência de alta/baixa).
-Parágrafo 2: Recomendação prática direta (Comprar agora, aguardar, qual moeda está melhor).
-Seja extremamente objetivo e use formato markdown básico. Sem rodeios.`;
+Parágrafo 1: Análise do momento atual (tendência de alta ou baixa frente ao Real).
+Parágrafo 2: Recomendação prática e DIRETA para COMPRA. IMPORTANTE: Não seja contraditório! 
+- Se a previsão indica que vai cair ainda mais, recomende CLARAMENTE "AGUARDAR" e não diga que o momento atual é bom.
+- Se a previsão indica que bateu no fundo e vai subir, recomende "COMPRAR AGORA".
+Seja extremamente coerente, objetivo e use <strong> para destaques de palavras-chave. Sem rodeios.`;
 
   try {
     const text = await callGemini(prompt);
