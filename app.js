@@ -518,7 +518,11 @@ Gere uma previsão de preço estruturada como JSON com os seguintes campos:
       "targetPrice": "valor numérico exato previsto (ex: 5.120)",
       "direction": "UP ou DOWN ou STABLE",
       "confidence": "porcentagem ex: 75%",
-      "reasoning": "Texto com o raciocínio baseado nos dados e contexto"
+      "reasoning": "Texto com o raciocínio baseado nos dados e contexto",
+      "chartData": [
+        { "date": "ex: Seg (19/05)", "price": 5.12, "reasoning": "Abertura com pressão de compra", "buySignal": false },
+        { "date": "ex: Qua (21/05)", "price": 5.08, "reasoning": "Correção técnica esperada", "buySignal": true }
+      ]
     }
   ]
 }
@@ -574,12 +578,82 @@ function renderPredictions(predictions) {
         </span>
         <span class="pred-label">Confiança: ${p.confidence}</span>
       </div>
-      <div class="pred-content">
-        <h4>Fundamento da IA</h4>
-        <p>${p.reasoning}</p>
+      <div class="pred-content" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+        <div style="margin-bottom: 12px;">
+          <h4 style="font-size: 15px; margin-bottom: 4px; color: white;">Fundamento da IA</h4>
+          <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">${p.reasoning}</p>
+        </div>
+        ${p.chartData && p.chartData.length > 0 ? `<div class="chart-container" style="flex: 1; min-height: 180px; width: 100%; position: relative; margin-top: 8px;"><canvas id="chart-${p.id}"></canvas></div>` : ''}
       </div>
     `;
     els.predictionGrid.appendChild(card);
+  });
+
+  // Initialize Charts
+  predictions.forEach(p => {
+    if (p.chartData && p.chartData.length > 0) {
+      const canvas = document.getElementById(`chart-${p.id}`);
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      const labels = p.chartData.map(d => d.date);
+      const data = p.chartData.map(d => parseFloat(d.price));
+      
+      const pointColors = p.chartData.map(d => d.buySignal ? '#10b981' : (p.currency === 'USD' ? '#10b981' : '#3b82f6'));
+      const pointRadius = p.chartData.map(d => d.buySignal ? 6 : 3);
+      const pointBorder = p.chartData.map(d => d.buySignal ? '#fff' : 'transparent');
+      
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Previsão',
+            data: data,
+            borderColor: p.currency === 'USD' ? '#10b981' : '#3b82f6',
+            backgroundColor: p.currency === 'USD' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: pointColors,
+            pointBorderColor: pointBorder,
+            pointBorderWidth: 2,
+            pointRadius: pointRadius,
+            pointHoverRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(15, 17, 21, 0.95)',
+              titleColor: '#9ba1ad',
+              bodyColor: '#fff',
+              borderColor: 'rgba(255,255,255,0.1)',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  const dataObj = p.chartData[context.dataIndex];
+                  let label = ' R$ ' + context.raw.toFixed(3);
+                  if(dataObj.buySignal) label += ' 🟢 (Oportunidade de Compra)';
+                  return label;
+                },
+                afterLabel: function(context) {
+                  const dataObj = p.chartData[context.dataIndex];
+                  return '\\nMotivo: ' + dataObj.reasoning;
+                }
+              }
+            }
+          },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { font: { size: 10 } } },
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { font: { size: 10 } } }
+          }
+        }
+      });
+    }
   });
 }
 
