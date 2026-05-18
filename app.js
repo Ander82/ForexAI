@@ -400,7 +400,7 @@ async function callGemini(prompt) {
   if (!state.apiKey) throw new Error('API Key missing');
   
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${state.apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -412,7 +412,10 @@ async function callGemini(prompt) {
     if(!response.ok) throw new Error(`API Error: ${response.status}`);
     
     const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
+    // Gemini 2.5 returns multiple parts (thinking + text). Get the last text part.
+    const parts = data.candidates[0].content.parts;
+    const textPart = parts.filter(p => p.text !== undefined).pop();
+    return textPart ? textPart.text : parts[0].text;
   } catch (err) {
     console.error(err);
     throw err;
@@ -499,8 +502,12 @@ Responda APENAS com o JSON válido, sem marcadores markdown \`\`\`json.`;
 
   try {
     const text = await callGemini(prompt);
-    let cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const result = JSON.parse(cleanJson);
+    // Robust JSON extraction: strip markdown fences and find JSON object
+    let cleanJson = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    // Try to find the JSON object if there's extra text around it
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);    
+    if (!jsonMatch) throw new Error('No JSON found in response');
+    const result = JSON.parse(jsonMatch[0]);
     
     renderPredictions(result.predictions);
     
