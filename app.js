@@ -419,13 +419,13 @@ function updateMainChart(currency) {
 
 // === GEMINI AI INTEGRATION === //
 
-async function callGemini(prompt) {
+async function callGemini(prompt, isJson = false) {
   // All calls go through the secure server proxy - API key never leaves the server
   try {
     const response = await fetch('/api/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt, isJson })
     });
     
     if(!response.ok) {
@@ -529,13 +529,17 @@ Gere uma previsão de preço estruturada como JSON com os seguintes campos:
 Responda APENAS com o JSON válido, sem marcadores markdown \`\`\`json.`;
 
   try {
-    const text = await callGemini(prompt);
-    // Robust JSON extraction: strip markdown fences and find JSON object
-    let cleanJson = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-    // Try to find the JSON object if there's extra text around it
-    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);    
-    if (!jsonMatch) throw new Error('No JSON found in response');
-    const result = JSON.parse(jsonMatch[0]);
+    const text = await callGemini(prompt, true);
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (parseError) {
+      // Fallback if Gemini accidentally included markdown even in JSON mode
+      let cleanJson = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+      const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);    
+      if (!jsonMatch) throw new Error('No JSON found in response');
+      result = JSON.parse(jsonMatch[0]);
+    }
     
     // Map new predictions with unique IDs and metadata first
     const newPreds = result.predictions.map(p => ({
@@ -903,12 +907,17 @@ Retorne APENAS um JSON estrito no seguinte formato:
 \`\`\`
 Não adicione nenhum texto antes ou depois do JSON.`;
 
-    const response = await callGemini(prompt);
+    const response = await callGemini(prompt, true);
     
-    let cleanJson = response.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-    const jsonMatch = cleanJson.match(/\[[\s\S]*\]/);    
-    if (!jsonMatch) throw new Error('No JSON found in response');
-    const newInsights = JSON.parse(jsonMatch[0]);
+    let newInsights;
+    try {
+      newInsights = JSON.parse(response);
+    } catch (parseError) {
+      let cleanJson = response.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+      const jsonMatch = cleanJson.match(/\[[\s\S]*\]/);    
+      if (!jsonMatch) throw new Error('No JSON found in response');
+      newInsights = JSON.parse(jsonMatch[0]);
+    }
     
     const today = new Date().toLocaleDateString('pt-BR');
     newInsights.forEach(i => i.date = today);

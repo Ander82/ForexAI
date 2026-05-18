@@ -22,10 +22,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt } = req.body;
+    const { prompt, isJson } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    const generationConfig = { temperature: 0.2 };
+    if (isJson) {
+      generationConfig.responseMimeType = "application/json";
     }
 
     const response = await fetch(
@@ -35,7 +40,7 @@ export default async function handler(req, res) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2 }
+          generationConfig: generationConfig
         })
       }
     );
