@@ -643,7 +643,7 @@ function renderPredictions(predictions) {
                 },
                 afterLabel: function(context) {
                   const dataObj = p.chartData[context.dataIndex];
-                  return '\\nMotivo: ' + dataObj.reasoning;
+                  return 'Motivo: ' + dataObj.reasoning;
                 }
               }
             }
