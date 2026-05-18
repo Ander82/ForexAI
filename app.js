@@ -679,8 +679,12 @@ Gere uma previsão de preço estruturada como JSON com os seguintes campos:
       "estrategia": "Resumo da estratégia em 1 frase baseada no Score",
       "reasoning": "Texto com o raciocínio justificando o cenário com base nos indicadores e contexto",
       "chartData": [
-        { "date": "Data real futura (ex: Seg 20/05)", "price": 5.12, "reasoning": "Abertura com pressão de compra", "buySignal": false },
-        { "date": "Data real futura (ex: Qua 22/05)", "price": 5.08, "reasoning": "Correção técnica esperada", "buySignal": true }
+        // CRÍTICO: VOCÊ DEVE GERAR EXATAMENTE 5 A 7 PONTOS DE DADOS FUTUROS, FORMANDO UMA LINHA DO TEMPO COMPLETA PARA O PERÍODO SOLICITADO.
+        // Apenas UM ponto deve ter "buySignal": true (representando o dia mais barato/melhor para compra). O restante deve ser false.
+        { "date": "Data futura (ex: Seg 20/05)", "price": 5.12, "reasoning": "Abertura de mercado", "buySignal": false },
+        { "date": "Data futura (ex: Ter 21/05)", "price": 5.10, "reasoning": "Início de correção técnica", "buySignal": false },
+        { "date": "Data futura (ex: Qua 22/05)", "price": 5.05, "reasoning": "Fundo técnico atingido, excelente suporte", "buySignal": true },
+        { "date": "Data futura (ex: Qui 23/05)", "price": 5.08, "reasoning": "Leve repique de alta", "buySignal": false }
       ]
     }
   ]
