@@ -17,7 +17,6 @@ const els = {
   apiKeyInput: document.getElementById('api-key-input'),
   saveConfigBtn: document.getElementById('save-config-btn'),
   skipConfigBtn: document.getElementById('skip-config-btn'),
-  openConfigBtn: document.getElementById('open-config-btn'),
   
   // Status
   aiStatusBadge: document.getElementById('ai-status-badge'),
@@ -81,9 +80,8 @@ async function init() {
 
 function setupEventListeners() {
   // Config Modal
-  els.saveConfigBtn.addEventListener('click', saveApiKey);
-  els.skipConfigBtn.addEventListener('click', hideModal);
-  els.openConfigBtn.addEventListener('click', showModal);
+  if(els.saveConfigBtn) els.saveConfigBtn.addEventListener('click', saveApiKey);
+  if(els.skipConfigBtn) els.skipConfigBtn.addEventListener('click', hideModal);
   if(els.configureAiBtn) els.configureAiBtn.addEventListener('click', showModal);
   
   // Navigation
