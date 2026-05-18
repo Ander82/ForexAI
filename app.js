@@ -314,24 +314,47 @@ async function fetchMarketData() {
   els.lastUpdateText.textContent = 'Atualizando...';
   
   try {
-    // Fetch from free API
-    const response = await fetch('https://open.er-api.com/v6/latest/USD');
-    const data = await response.json();
+    // Get date 25 days ago to ensure we have at least 14 business days for RSI calculation
+    const today = new Date();
+    const past = new Date();
+    past.setDate(today.getDate() - 25);
     
-    if (data.result === 'success') {
-      const brlRate = data.rates.BRL; // USD to BRL
-      const eurRate = data.rates.EUR; // USD to EUR
+    const formatDate = (d) => d.toISOString().split('T')[0];
+    const startDate = formatDate(past);
+    
+    // Fetch History from Frankfurter API (Reliable ECB historical data)
+    const response = await fetch(`https://api.frankfurter.app/${startDate}..?from=USD&to=BRL,EUR`);
+    const histData = await response.json();
+    
+    if (histData.rates) {
+      const dates = Object.keys(histData.rates).sort();
       
-      const usdToBrl = brlRate;
-      const eurToBrl = brlRate / eurRate; // Cross rate
+      const usdHistory = [];
+      const eurHistory = [];
       
-      // Update state
-      state.rates.USD = usdToBrl;
-      state.rates.EUR = eurToBrl;
+      let lastUsd = null;
+      let lastEur = null;
       
-      // Save to history (mocking last 7 days for charts if empty)
-      updateHistoryMock('USD', usdToBrl);
-      updateHistoryMock('EUR', eurToBrl);
+      dates.forEach(date => {
+        const usdToBrl = histData.rates[date].BRL;
+        const usdToEur = histData.rates[date].EUR;
+        const eurToBrl = usdToBrl / usdToEur; // Cross rate EUR/BRL
+        
+        usdHistory.push({ date: date, price: usdToBrl.toFixed(4) });
+        eurHistory.push({ date: date, price: eurToBrl.toFixed(4) });
+        
+        lastUsd = usdToBrl;
+        lastEur = eurToBrl;
+      });
+      
+      // Update state with REAL history
+      state.history.USD = usdHistory;
+      state.history.EUR = eurHistory;
+      localStorage.setItem('forex_history', JSON.stringify(state.history));
+      
+      // Update current rates
+      state.rates.USD = lastUsd;
+      state.rates.EUR = lastEur;
       
       updateDashboardUI();
       updateMainChart('USD');
@@ -348,36 +371,6 @@ async function fetchMarketData() {
     els.lastUpdateText.textContent = 'Falha na atualização';
   } finally {
     els.refreshBtn.classList.remove('loading');
-  }
-}
-
-function updateHistoryMock(currency, currentRate) {
-  if (!state.history[currency] || state.history[currency].length < 10) {
-    // Generate some fake history for chart based on current rate
-    const mock = [];
-    let price = currentRate;
-    for(let i=10; i>=0; i--) {
-      // Random variation +/- 1%
-      price = price * (1 + (Math.random() * 0.02 - 0.01));
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      mock.push({ date: d.toISOString().split('T')[0], price: price.toFixed(4) });
-    }
-    // Set current day exact
-    mock[mock.length-1] = { date: new Date().toISOString().split('T')[0], price: currentRate.toFixed(4) };
-    state.history[currency] = mock;
-    localStorage.setItem('forex_history', JSON.stringify(state.history));
-  } else {
-    // Just append today
-    const today = new Date().toISOString().split('T')[0];
-    const last = state.history[currency][state.history[currency].length-1];
-    if (last.date === today) {
-      last.price = currentRate.toFixed(4);
-    } else {
-      state.history[currency].push({ date: today, price: currentRate.toFixed(4) });
-      if(state.history[currency].length > 30) state.history[currency].shift(); // keep 30 days
-    }
-    localStorage.setItem('forex_history', JSON.stringify(state.history));
   }
 }
 
