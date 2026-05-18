@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ForexAI — Previsão Inteligente de Câmbio</title>
+  <meta name="description" content="Sistema avançado de previsão de câmbio com IA para Dólar e Euro. Análise em tempo real, histórico de acertos e oportunidades de compra." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- CONFIG MODAL -->
+  <div id="config-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-icon">⚙️</div>
+        <h2>Configuração da API Gemini</h2>
+        <p>Insira sua chave de API para habilitar análise com IA</p>
+      </div>
+      <div class="modal-body">
+        <label for="api-key-input">Chave da API Gemini</label>
+        <input type="password" id="api-key-input" placeholder="AIza..." autocomplete="off" />
+        <p class="modal-hint">🔒 Sua chave é armazenada localmente no seu navegador e nunca é enviada a terceiros.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="save-config-btn" class="btn-primary">Salvar e Ativar IA</button>
+        <button id="skip-config-btn" class="btn-ghost">Continuar sem IA</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">₿</div>
+      <div class="logo-text">
+        <span class="logo-name">ForexAI</span>
+        <span class="logo-sub">Câmbio Inteligente</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-view="dashboard" id="nav-dashboard">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" data-view="prediction" id="nav-prediction">
+        <span class="nav-icon">🔮</span>
+        <span class="nav-label">Previsões</span>
+      </button>
+      <button class="nav-item" data-view="history" id="nav-history">
+        <span class="nav-icon">📈</span>
+        <span class="nav-label">Histórico</span>
+      </button>
+      <button class="nav-item" data-view="learning" id="nav-learning">
+        <span class="nav-icon">🧠</span>
+        <span class="nav-label">Aprendizado IA</span>
+      </button>
+      <button class="nav-item" data-view="opportunities" id="nav-opportunities">
+        <span class="nav-icon">💰</span>
+        <span class="nav-label">Oportunidades</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="ai-status" id="ai-status-badge">
+        <span class="status-dot offline"></span>
+        <span class="status-text">IA Offline</span>
+      </div>
+      <button class="btn-config" id="open-config-btn">⚙️ Configurar API</button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title" id="page-title">Dashboard</h1>
+        <div class="last-update" id="last-update-text">Atualizando...</div>
+      </div>
+      <div class="topbar-right">
+        <div class="market-clock" id="market-clock"></div>
+        <button class="btn-refresh" id="refresh-btn" title="Atualizar dados">
+          <span class="refresh-icon">↻</span>
+        </button>
+        <button class="btn-analyze" id="analyze-btn">
+          <span>🔮</span> Analisar com IA
+        </button>
+      </div>
+    </header>
+
+    <!-- VIEWS -->
+    <div class="views-container">
+
+      <!-- ===== DASHBOARD VIEW ===== -->
+      <section class="view active" id="view-dashboard">
+
+        <!-- CURRENCY CARDS ROW -->
+        <div class="currency-cards-row">
+          <div class="currency-card usd" id="card-usd">
+            <div class="card-header">
+              <div class="currency-flag">🇺🇸</div>
+              <div class="currency-info">
+                <span class="currency-code">USD</span>
+                <span class="currency-name">Dólar Americano</span>
+              </div>
+              <div class="signal-badge" id="signal-usd">—</div>
+            </div>
+            <div class="card-price" id="price-usd">R$ —,——</div>
+            <div class="card-change" id="change-usd">
+              <span class="change-icon">—</span>
+              <span class="change-value">—</span>
+            </div>
+            <div class="card-prediction-mini">
+              <span class="pred-label">Previsão Gemini</span>
+              <span class="pred-value" id="pred-usd-mini">Aguardando análise...</span>
+            </div>
+            <div class="card-sparkline">
+              <canvas id="sparkline-usd" width="200" height="50"></canvas>
+            </div>
+          </div>
+
+          <div class="currency-card eur" id="card-eur">
+            <div class="card-header">
+              <div class="currency-flag">🇪🇺</div>
+              <div class="currency-info">
+                <span class="currency-code">EUR</span>
+                <span class="currency-name">Euro</span>
+              </div>
+              <div class="signal-badge" id="signal-eur">—</div>
+            </div>
+            <div class="card-price" id="price-eur">R$ —,——</div>
+            <div class="card-change" id="change-eur">
+              <span class="change-icon">—</span>
+              <span class="change-value">—</span>
+            </div>
+            <div class="card-prediction-mini">
+              <span class="pred-label">Previsão Gemini</span>
+              <span class="pred-value" id="pred-eur-mini">Aguardando análise...</span>
+            </div>
+            <div class="card-sparkline">
+              <canvas id="sparkline-eur" width="200" height="50"></canvas>
+            </div>
+          </div>
+
+          <div class="currency-card brl-stats" id="card-stats">
+            <div class="card-header">
+              <div class="currency-flag">🇧🇷</div>
+              <div class="currency-info">
+                <span class="currency-code">BRL</span>
+                <span class="currency-name">Real Brasileiro</span>
+              </div>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <span class="stat-label">Acurácia IA</span>
+                <span class="stat-value" id="accuracy-rate">—%</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Previsões</span>
+                <span class="stat-value" id="total-predictions">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Acertos</span>
+                <span class="stat-value success" id="correct-predictions">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Erros</span>
+                <span class="stat-value danger" id="wrong-predictions">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MARKET CHART + ANALYSIS -->
+        <div class="dashboard-grid">
+          <div class="panel chart-panel">
+            <div class="panel-header">
+              <h3>Cotação em Tempo Real</h3>
+              <div class="chart-tabs">
+                <button class="chart-tab active" data-currency="USD" id="tab-usd">USD/BRL</button>
+                <button class="chart-tab" data-currency="EUR" id="tab-eur">EUR/BRL</button>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="main-chart" width="600" height="280"></canvas>
+            </div>
+            <div class="chart-legend">
+              <div class="legend-item"><span class="legend-dot price-dot"></span> Cotação</div>
+              <div class="legend-item"><span class="legend-dot pred-dot"></span> Previsão IA</div>
+            </div>
+          </div>
+
+          <div class="panel ai-panel">
+            <div class="panel-header">
+              <h3>🧠 Análise da IA</h3>
+              <span class="panel-badge" id="ai-panel-status">Offline</span>
+            </div>
+            <div class="ai-analysis-content" id="ai-analysis-content">
+              <div class="ai-placeholder">
+                <div class="ai-placeholder-icon">🔮</div>
+                <p>Configure a API Gemini para receber análises de mercado em tempo real com recomendações de compra precisas.</p>
+                <button class="btn-primary small" id="configure-ai-btn">Configurar IA</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MARKET INDICATORS -->
+        <div class="indicators-row">
+          <div class="indicator-card">
+            <div class="ind-label">Volatilidade USD/BRL</div>
+            <div class="ind-value" id="ind-volatility-usd">—</div>
+            <div class="ind-bar"><div class="ind-fill usd-fill" id="bar-vol-usd" style="width:0%"></div></div>
+          </div>
+          <div class="indicator-card">
+            <div class="ind-label">Volatilidade EUR/BRL</div>
+            <div class="ind-value" id="ind-volatility-eur">—</div>
+            <div class="ind-bar"><div class="ind-fill eur-fill" id="bar-vol-eur" style="width:0%"></div></div>
+          </div>
+          <div class="indicator-card">
+            <div class="ind-label">Momento de Compra USD</div>
+            <div class="ind-value" id="ind-buy-usd">—</div>
+            <div class="ind-bar"><div class="ind-fill success-fill" id="bar-buy-usd" style="width:0%"></div></div>
+          </div>
+          <div class="indicator-card">
+            <div class="ind-label">Momento de Compra EUR</div>
+            <div class="ind-value" id="ind-buy-eur">—</div>
+            <div class="ind-bar"><div class="ind-fill success-fill" id="bar-buy-eur" style="width:0%"></div></div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ===== PREDICTIONS VIEW ===== -->
+      <section class="view" id="view-prediction">
+        <div class="view-header">
+          <h2>Previsões do Mercado</h2>
+          <p>Análise preditiva com IA Gemini para USD e EUR nos próximos períodos</p>
+        </div>
+
+        <div class="prediction-tabs-row">
+          <button class="pred-tab active" data-period="daily">📅 Diário</button>
+          <button class="pred-tab" data-period="weekly">📆 Semanal</button>
+          <button class="pred-tab" data-period="monthly">🗓️ Mensal</button>
+          <button class="pred-tab" data-period="quarterly">📊 Trimestral</button>
+        </div>
+
+        <div class="prediction-grid" id="prediction-grid">
+          <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Gerando previsões com IA...</p>
+          </div>
+        </div>
+
+        <div class="panel generate-panel">
+          <div class="panel-header">
+            <h3>🔮 Gerar Nova Previsão</h3>
+          </div>
+          <div class="generate-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Moeda</label>
+                <select id="pred-currency">
+                  <option value="both">USD + EUR</option>
+                  <option value="USD">Dólar (USD)</option>
+                  <option value="EUR">Euro (EUR)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Período</label>
+                <select id="pred-period">
+                  <option value="daily">Hoje / Amanhã</option>
+                  <option value="weekly">Esta Semana</option>
+                  <option value="monthly">Este Mês</option>
+                  <option value="quarterly">Trimestral</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Contexto adicional (opcional)</label>
+                <input type="text" id="pred-context" placeholder="Ex: eleições, COPOM, tensão geopolítica..." />
+              </div>
+            </div>
+            <button class="btn-primary" id="generate-prediction-btn">
+              <span>🔮</span> Gerar Previsão com IA
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== HISTORY VIEW ===== -->
+      <section class="view" id="view-history">
+        <div class="view-header">
+          <h2>Histórico de Previsões</h2>
+          <p>Acompanhe a evolução das previsões e o desempenho do modelo ao longo do tempo</p>
+        </div>
+
+        <div class="history-stats-row">
+          <div class="hist-stat">
+            <div class="hs-icon">🎯</div>
+            <div class="hs-data">
+              <span class="hs-val" id="hist-accuracy">—%</span>
+              <span class="hs-label">Acurácia Geral</span>
+            </div>
+          </div>
+          <div class="hist-stat">
+            <div class="hs-icon">✅</div>
+            <div class="hs-data">
+              <span class="hs-val success" id="hist-correct">0</span>
+              <span class="hs-label">Previsões Corretas</span>
+            </div>
+          </div>
+          <div class="hist-stat">
+            <div class="hs-icon">❌</div>
+            <div class="hs-data">
+              <span class="hs-val danger" id="hist-wrong">0</span>
+              <span class="hs-label">Previsões Erradas</span>
+            </div>
+          </div>
+          <div class="hist-stat">
+            <div class="hs-icon">📚</div>
+            <div class="hs-data">
+              <span class="hs-val" id="hist-learnings">0</span>
+              <span class="hs-label">Aprendizados</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h3>Registro de Previsões</h3>
+            <div class="history-filters">
+              <select id="hist-filter-currency">
+                <option value="all">Todas as moedas</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+              </select>
+              <select id="hist-filter-result">
+                <option value="all">Todos os resultados</option>
+                <option value="correct">Corretas</option>
+                <option value="wrong">Erradas</option>
+                <option value="pending">Pendentes</option>
+              </select>
+            </div>
+          </div>
+          <div class="history-table-container">
+            <table class="history-table" id="history-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Moeda</th>
+                  <th>Previsão</th>
+                  <th>Real</th>
+                  <th>Direção Prev.</th>
+                  <th>Direção Real</th>
+                  <th>Resultado</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="history-tbody">
+                <tr>
+                  <td colspan="8" class="empty-state">Nenhum histórico ainda. Gere sua primeira previsão!</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== LEARNING VIEW ===== -->
+      <section class="view" id="view-learning">
+        <div class="view-header">
+          <h2>Aprendizado da IA</h2>
+          <p>O modelo aprende com seus erros e acertos para melhorar continuamente as previsões</p>
+        </div>
+
+        <div class="learning-grid">
+          <div class="panel learning-insights-panel">
+            <div class="panel-header">
+              <h3>🧠 Insights Aprendidos</h3>
+              <button class="btn-ghost small" id="generate-insights-btn">Gerar novos insights</button>
+            </div>
+            <div class="insights-list" id="insights-list">
+              <div class="ai-placeholder">
+                <div class="ai-placeholder-icon">📖</div>
+                <p>O modelo ainda não tem histórico suficiente para gerar insights. Faça previsões e registre os resultados reais para ativar o aprendizado.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel learning-rules-panel">
+            <div class="panel-header">
+              <h3>📋 Regras do Modelo</h3>
+            </div>
+            <div class="rules-list" id="rules-list">
+              <div class="rule-item default">
+                <div class="rule-number">R01</div>
+                <div class="rule-content">
+                  <strong>Regra Base</strong>
+                  <p>Analisa cotação atual vs. média histórica dos últimos 30 dias para identificar oportunidades de compra abaixo da média.</p>
+                </div>
+              </div>
+              <div class="rule-item default">
+                <div class="rule-number">R02</div>
+                <div class="rule-content">
+                  <strong>Tendência de Curto Prazo</strong>
+                  <p>Detecta padrões de alta/baixa nos últimos 7 dias para prever a tendência dos próximos 3 dias.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h3>📊 Atualizar Resultado Real</h3>
+            <p>Registre o valor real de fechamento para treinar o modelo</p>
+          </div>
+          <div class="update-result-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Selecionar Previsão</label>
+                <select id="update-prediction-select">
+                  <option value="">Selecione uma previsão pendente...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Valor Real de Fechamento (R$)</label>
+                <input type="number" id="actual-value-input" placeholder="Ex: 5.04" step="0.001" min="1" />
+              </div>
+              <div class="form-group">
+                <label>Contexto do Mercado (o que aconteceu?)</label>
+                <input type="text" id="market-context-input" placeholder="Ex: COPOM subiu juros, dólar disparou..." />
+              </div>
+            </div>
+            <button class="btn-primary" id="update-result-btn">
+              <span>📚</span> Registrar e Treinar Modelo
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== OPPORTUNITIES VIEW ===== -->
+      <section class="view" id="view-opportunities">
+        <div class="view-header">
+          <h2>Oportunidades de Compra</h2>
+          <p>Alertas inteligentes para as melhores janelas de aquisição de moeda estrangeira</p>
+        </div>
+
+        <div class="opportunities-hero" id="opportunities-hero">
+          <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Analisando oportunidades...</p>
+          </div>
+        </div>
+
+        <div class="opp-grid">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>🎯 Planejamento de Compra</h3>
+            </div>
+            <div class="buy-planner" id="buy-planner">
+              <div class="planner-form">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Valor que deseja comprar (R$)</label>
+                    <input type="number" id="buy-amount-brl" placeholder="Ex: 10000" min="100" />
+                  </div>
+                  <div class="form-group">
+                    <label>Moeda alvo</label>
+                    <select id="buy-currency-target">
+                      <option value="USD">Dólar (USD)</option>
+                      <option value="EUR">Euro (EUR)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Prazo de compra</label>
+                    <select id="buy-deadline">
+                      <option value="7">7 dias</option>
+                      <option value="30">30 dias</option>
+                      <option value="90">90 dias</option>
+                    </select>
+                  </div>
+                </div>
+                <button class="btn-primary" id="plan-buy-btn">
+                  <span>💰</span> Calcular Melhor Momento
+                </button>
+              </div>
+              <div class="plan-result hidden" id="plan-result"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>📊 Comparativo de Moedas</h3>
+            </div>
+            <div id="currency-comparison">
+              <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <p>Calculando comparativo...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel alert-config-panel">
+          <div class="panel-header">
+            <h3>🔔 Alertas de Preço</h3>
+          </div>
+          <div class="alert-config">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Moeda</label>
+                <select id="alert-currency">
+                  <option value="USD">USD/BRL</option>
+                  <option value="EUR">EUR/BRL</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Alertar quando atingir (R$)</label>
+                <input type="number" id="alert-price" placeholder="Ex: 4.90" step="0.01" min="1" />
+              </div>
+              <div class="form-group">
+                <label>Tipo</label>
+                <select id="alert-type">
+                  <option value="below">Abaixo de</option>
+                  <option value="above">Acima de</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn-primary" id="add-alert-btn">+ Adicionar Alerta</button>
+          </div>
+          <div class="alerts-list" id="alerts-list">
+            <div class="empty-state">Nenhum alerta configurado</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- TOAST NOTIFICATIONS -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
