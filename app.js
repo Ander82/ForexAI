@@ -110,6 +110,17 @@ function setupEventListeners() {
       updateMainChart(e.target.dataset.currency);
     });
   });
+  
+  // Prediction Tabs
+  document.querySelectorAll('.pred-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      document.querySelectorAll('.pred-tab').forEach(t => t.classList.remove('active'));
+      e.target.classList.add('active');
+      const period = e.target.dataset.period;
+      document.getElementById('pred-period').value = period;
+      filterPredictionsByPeriod(period);
+    });
+  });
 }
 
 async function checkServerConnection() {
@@ -192,6 +203,10 @@ function switchView(viewName) {
   // Call specific render functions
   if(viewName === 'history') renderHistory();
   if(viewName === 'learning') renderLearning();
+  if(viewName === 'prediction') {
+    const activeTab = document.querySelector('.pred-tab.active');
+    if(activeTab) filterPredictionsByPeriod(activeTab.dataset.period);
+  }
 }
 
 function updateClock() {
@@ -464,6 +479,12 @@ Seja extremamente objetivo e use formato markdown básico. Sem rodeios.`;
     els.predEurMini.textContent = "Análise concluída. Veja painel IA.";
     els.predEurMini.style.color = "var(--success)";
     
+    // Clear prediction grid loading state if we are on dashboard and it was stuck
+    if(state.activeView === 'dashboard') {
+        const activeTab = document.querySelector('.pred-tab.active');
+        if(activeTab) filterPredictionsByPeriod(activeTab.dataset.period);
+    }
+    
   } catch(err) {
     content.innerHTML = `<div class="ai-placeholder"><p style="color:var(--danger)">Erro na API Gemini: Verifique sua chave ou cota de uso.</p></div>`;
   }
@@ -526,6 +547,11 @@ Responda APENAS com o JSON válido, sem marcadores markdown \`\`\`json.`;
     state.predictions = [...newPreds, ...state.predictions];
     localStorage.setItem('forex_predictions', JSON.stringify(state.predictions));
     
+    // Update active tab to match the generated period
+    document.querySelectorAll('.pred-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.period === period);
+    });
+    
   } catch(err) {
     console.error(err);
     els.predictionGrid.innerHTML = `<div class="ai-placeholder"><p style="color:var(--danger)">Erro ao gerar previsão. O modelo pode não ter retornado um JSON válido. Tente novamente.</p></div>`;
@@ -554,6 +580,23 @@ function renderPredictions(predictions) {
     `;
     els.predictionGrid.appendChild(card);
   });
+}
+
+function filterPredictionsByPeriod(period) {
+  const filtered = state.predictions.filter(p => p.period === period && p.status === 'pending');
+  
+  if (filtered.length > 0) {
+    renderPredictions(filtered);
+  } else {
+    // Show empty state asking to generate
+    els.predictionGrid.innerHTML = `
+      <div class="ai-placeholder">
+        <div class="ai-placeholder-icon">🔮</div>
+        <p>Nenhuma previsão pendente para este período.</p>
+        <p style="font-size: 13px; margin-top: 8px;">Use o botão <strong>"Gerar Previsão com IA"</strong> abaixo para realizar uma nova análise.</p>
+      </div>
+    `;
+  }
 }
 
 function calculateOpportunity() {
