@@ -267,44 +267,64 @@ function calculateRSI(prices, period = 14) {
   return 100 - (100 / (1 + rs));
 }
 
+function calculateStdDev(prices, sma, period) {
+  if (prices.length < period) return 0;
+  const slice = prices.slice(-period);
+  const variance = slice.reduce((acc, val) => acc + Math.pow(val - sma, 2), 0) / period;
+  return Math.sqrt(variance);
+}
+
 function calculateBuyScore(currency) {
   const history = state.history[currency] || [];
-  if (history.length < 5) return { score: 50, rsi: 50, sma: state.rates[currency] };
+  if (history.length < 20) return { score: 50, rsi: 50, sma: state.rates[currency], zScore: 0 };
   
   const prices = history.map(d => parseFloat(d.price));
   const currentPrice = state.rates[currency];
   
-  const sma10 = calculateSMA(prices, 10);
+  const sma20 = calculateSMA(prices, 20);
+  const sma50 = calculateSMA(prices, 50);
   const rsi14 = calculateRSI(prices, 14);
+  const stdDev20 = calculateStdDev(prices, sma20, 20);
+  
+  // Z-Score (how many std deviations is the price from the mean)
+  const zScore = stdDev20 > 0 ? (currentPrice - sma20) / stdDev20 : 0;
   
   let score = 50; // Base neutral score
   
-  // Rule 1: Price vs SMA (Trend & Mean Reversion) - max 40 points impact
-  // If price is 5% below SMA, it's very cheap (+20 points)
-  // If price is 5% above SMA, it's very expensive (-20 points)
-  const smaDiffPct = (currentPrice - sma10) / sma10;
-  let smaScore = 0;
-  if (smaDiffPct < -0.01) smaScore = 20; // 1% below SMA
-  else if (smaDiffPct < 0) smaScore = 10;
-  else if (smaDiffPct > 0.01) smaScore = -20;
-  else if (smaDiffPct > 0) smaScore = -10;
-  score += smaScore;
+  // Rule 1: RSI (max 20 points impact)
+  if (rsi14 < 30) score += 20; 
+  else if (rsi14 < 40) score += 10;
+  else if (rsi14 > 70) score -= 20;
+  else if (rsi14 > 60) score -= 10;
   
-  // Rule 2: RSI (Oversold / Overbought) - max 30 points impact
-  let rsiScore = 0;
-  if (rsi14 < 30) rsiScore = 30; // Strongly oversold (buy signal)
-  else if (rsi14 < 40) rsiScore = 15;
-  else if (rsi14 > 70) rsiScore = -30; // Strongly overbought (sell signal)
-  else if (rsi14 > 60) rsiScore = -15;
-  score += rsiScore;
+  // Rule 2: Distance from SMA20 (max 20 points impact)
+  const distSma20 = (currentPrice - sma20) / sma20;
+  if (distSma20 < -0.02) score += 20; // 2% below
+  else if (distSma20 < -0.01) score += 10;
+  else if (distSma20 > 0.02) score -= 20;
+  else if (distSma20 > 0.01) score -= 10;
+  
+  // Rule 3: Distance from SMA50 (max 15 points impact)
+  const distSma50 = sma50 > 0 ? (currentPrice - sma50) / sma50 : 0;
+  if (distSma50 < -0.03) score += 15; // 3% below
+  else if (distSma50 < -0.015) score += 7;
+  else if (distSma50 > 0.03) score -= 15;
+  else if (distSma50 > 0.015) score -= 7;
+  
+  // Rule 4: Z-Score / Bollinger (max 15 points impact)
+  if (zScore < -2) score += 15; // Below lower band
+  else if (zScore < -1) score += 7;
+  else if (zScore > 2) score -= 15; // Above upper band
+  else if (zScore > 1) score -= 7;
   
   // Clamp score 0-100
-  score = Math.max(0, Math.min(100, score));
+  score = Math.max(0, Math.min(100, Math.round(score)));
   
   return {
     score: score,
     rsi: rsi14.toFixed(2),
-    sma: sma10.toFixed(4)
+    sma: sma20.toFixed(4),
+    zScore: zScore.toFixed(2)
   };
 }
 
@@ -314,10 +334,10 @@ async function fetchMarketData() {
   els.lastUpdateText.textContent = 'Atualizando...';
   
   try {
-    // Get date 25 days ago to ensure we have at least 14 business days for RSI calculation
+    // Fetch last 90 days of history for robust RSI, SMA20, SMA50 and Bollinger Bands
     const today = new Date();
     const past = new Date();
-    past.setDate(today.getDate() - 25);
+    past.setDate(today.getDate() - 90);
     
     const formatDate = (d) => d.toISOString().split('T')[0];
     const startDate = formatDate(past);
@@ -638,9 +658,9 @@ async function generatePrediction() {
 Sua função é APENAS contextualizar e justificar a matemática, e gerar os alvos futuros.
 
 Cotações atuais: USD ${state.rates.USD.toFixed(3)}, EUR ${state.rates.EUR.toFixed(3)}.
-Dados Quantitativos Calculados (USD): SMA(10)=${scoreUSD.sma}, RSI(14)=${scoreUSD.rsi}, MathScore(0-100)=${scoreUSD.score}
-Dados Quantitativos Calculados (EUR): SMA(10)=${scoreEUR.sma}, RSI(14)=${scoreEUR.rsi}, MathScore(0-100)=${scoreEUR.score}
-(Nota: Score > 70 indica excelente oportunidade de compra. RSI < 30 é sobrevenda extrema. SMA é a média dos últimos 10 dias).
+Dados Quantitativos Calculados (USD): SMA(20)=${scoreUSD.sma}, RSI(14)=${scoreUSD.rsi}, Z-Score=${scoreUSD.zScore}, MathScore(0-100)=${scoreUSD.score}
+Dados Quantitativos Calculados (EUR): SMA(20)=${scoreEUR.sma}, RSI(14)=${scoreEUR.rsi}, Z-Score=${scoreEUR.zScore}, MathScore(0-100)=${scoreEUR.score}
+(Nota: MathScore é um algoritmo institucional. > 75 = Compra Forte, 60-74 = Compra Parcial, < 40 = Não Comprar).
 
 ${promptContext}
 
