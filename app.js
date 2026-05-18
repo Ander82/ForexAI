@@ -227,6 +227,87 @@ function showToast(message, type = 'info') {
   }, 3000);
 }
 
+// === QUANTITATIVE ENGINE (MATH) === //
+function calculateSMA(prices, period = 10) {
+  if (prices.length < period) return prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+  const slice = prices.slice(-period);
+  return slice.reduce((a, b) => a + b, 0) / period;
+}
+
+function calculateRSI(prices, period = 14) {
+  if (prices.length <= period) return 50; // Default neutral if not enough data
+  
+  let gains = 0;
+  let losses = 0;
+  
+  // Initial average calculation
+  for (let i = 1; i <= period; i++) {
+    const diff = prices[i] - prices[i - 1];
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
+  }
+  
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+  
+  // Smoothed calculation for the rest
+  for (let i = period + 1; i < prices.length; i++) {
+    const diff = prices[i] - prices[i - 1];
+    if (diff >= 0) {
+      avgGain = (avgGain * (period - 1) + diff) / period;
+      avgLoss = (avgLoss * (period - 1)) / period;
+    } else {
+      avgGain = (avgGain * (period - 1)) / period;
+      avgLoss = (avgLoss * (period - 1) - diff) / period;
+    }
+  }
+  
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+
+function calculateBuyScore(currency) {
+  const history = state.history[currency] || [];
+  if (history.length < 5) return { score: 50, rsi: 50, sma: state.rates[currency] };
+  
+  const prices = history.map(d => parseFloat(d.price));
+  const currentPrice = state.rates[currency];
+  
+  const sma10 = calculateSMA(prices, 10);
+  const rsi14 = calculateRSI(prices, 14);
+  
+  let score = 50; // Base neutral score
+  
+  // Rule 1: Price vs SMA (Trend & Mean Reversion) - max 40 points impact
+  // If price is 5% below SMA, it's very cheap (+20 points)
+  // If price is 5% above SMA, it's very expensive (-20 points)
+  const smaDiffPct = (currentPrice - sma10) / sma10;
+  let smaScore = 0;
+  if (smaDiffPct < -0.01) smaScore = 20; // 1% below SMA
+  else if (smaDiffPct < 0) smaScore = 10;
+  else if (smaDiffPct > 0.01) smaScore = -20;
+  else if (smaDiffPct > 0) smaScore = -10;
+  score += smaScore;
+  
+  // Rule 2: RSI (Oversold / Overbought) - max 30 points impact
+  let rsiScore = 0;
+  if (rsi14 < 30) rsiScore = 30; // Strongly oversold (buy signal)
+  else if (rsi14 < 40) rsiScore = 15;
+  else if (rsi14 > 70) rsiScore = -30; // Strongly overbought (sell signal)
+  else if (rsi14 > 60) rsiScore = -15;
+  score += rsiScore;
+  
+  // Clamp score 0-100
+  score = Math.max(0, Math.min(100, score));
+  
+  return {
+    score: score,
+    rsi: rsi14.toFixed(2),
+    sma: sma10.toFixed(4)
+  };
+}
+
 // === MARKET DATA === //
 async function fetchMarketData() {
   els.refreshBtn.classList.add('loading');
@@ -557,8 +638,17 @@ async function generatePrediction() {
   let promptContext = `Moeda alvo: ${currency === 'both' ? 'USD e EUR' : currency}. Período: ${period}. Data de Hoje: ${new Date().toLocaleDateString('pt-BR')}.`;
   if(context) promptContext += `\nContexto externo fornecido pelo usuário: "${context}"`;
   
-  const prompt = `Você é um modelo preditivo de câmbio cambial BRL.
+  const scoreUSD = calculateBuyScore('USD');
+  const scoreEUR = calculateBuyScore('EUR');
+  
+  const prompt = `Você é um modelo preditivo e analista quantitativo de câmbio BRL.
+Sua função é APENAS contextualizar e justificar a matemática, e gerar os alvos futuros.
+
 Cotações atuais: USD ${state.rates.USD.toFixed(3)}, EUR ${state.rates.EUR.toFixed(3)}.
+Dados Quantitativos Calculados (USD): SMA(10)=${scoreUSD.sma}, RSI(14)=${scoreUSD.rsi}, MathScore(0-100)=${scoreUSD.score}
+Dados Quantitativos Calculados (EUR): SMA(10)=${scoreEUR.sma}, RSI(14)=${scoreEUR.rsi}, MathScore(0-100)=${scoreEUR.score}
+(Nota: Score > 70 indica excelente oportunidade de compra. RSI < 30 é sobrevenda extrema. SMA é a média dos últimos 10 dias).
+
 ${promptContext}
 
 Gere uma previsão de preço estruturada como JSON com os seguintes campos:
@@ -570,7 +660,10 @@ Gere uma previsão de preço estruturada como JSON com os seguintes campos:
       "targetPrice": "valor numérico exato previsto (ex: 5.120)",
       "direction": "UP ou DOWN ou STABLE",
       "confidence": "porcentagem ex: 75%",
-      "reasoning": "Texto com o raciocínio baseado nos dados e contexto",
+      "score_compra": "Apenas o número do MathScore fornecido acima (ex: 72)",
+      "acao_recomendada": "COMPRAR AGORA, AGUARDAR, ou COMPRAR PARCIAL",
+      "estrategia": "Resumo da estratégia em 1 frase baseada no Score",
+      "reasoning": "Texto com o raciocínio justificando o cenário com base nos indicadores e contexto",
       "chartData": [
         { "date": "Data real futura (ex: Seg 20/05)", "price": 5.12, "reasoning": "Abertura com pressão de compra", "buySignal": false },
         { "date": "Data real futura (ex: Qua 22/05)", "price": 5.08, "reasoning": "Correção técnica esperada", "buySignal": true }
@@ -627,20 +720,32 @@ function renderPredictions(predictions) {
   predictions.forEach(p => {
     const card = document.createElement('div');
     card.className = 'pred-card';
+    
+    // Score Badge Color
+    let scoreColor = 'var(--text-muted)';
+    let scoreNum = parseInt(p.score_compra) || 0;
+    if(scoreNum >= 70) scoreColor = 'var(--success)';
+    else if(scoreNum <= 40) scoreColor = 'var(--danger)';
+    else scoreColor = 'var(--warning)';
+
     card.innerHTML = `
       <div class="pred-meta">
         <span class="currency-code">${p.currency}/BRL</span>
         <span class="pred-label">Alvo: ${p.targetDate}</span>
         <div class="pred-target-price">R$ ${p.targetPrice}</div>
-        <span class="signal-badge ${p.direction === 'UP' ? 'sell' : (p.direction === 'DOWN' ? 'buy' : 'hold')}">
-          ${p.direction === 'UP' ? '📈 ALTA' : (p.direction === 'DOWN' ? '📉 BAIXA' : '➡️ ESTÁVEL')}
-        </span>
-        <span class="pred-label">Confiança: ${p.confidence}</span>
+        <div style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05);">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Score de Compra</div>
+          <div style="font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: ${scoreColor}; line-height: 1.2; margin: 4px 0;">${p.score_compra || '-'}</div>
+          <div style="font-size: 11px; font-weight: 700; color: ${scoreColor}; text-transform: uppercase;">${p.acao_recomendada || 'Analisando'}</div>
+        </div>
       </div>
       <div class="pred-content" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
         <div style="margin-bottom: 12px;">
-          <h4 style="font-size: 15px; margin-bottom: 4px; color: white;">Fundamento da IA</h4>
-          <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">${p.reasoning}</p>
+          <h4 style="font-size: 15px; margin-bottom: 4px; color: white;">Estratégia e Fundamento (IA)</h4>
+          <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">
+            <strong style="color: white;">${p.estrategia || ''}</strong><br><br>
+            ${p.reasoning}
+          </p>
         </div>
         ${p.chartData && p.chartData.length > 0 ? `<div class="chart-container" style="flex: 1; min-height: 180px; width: 100%; position: relative; margin-top: 8px;"><canvas id="chart-${p.id}"></canvas></div>` : ''}
       </div>
