@@ -343,8 +343,8 @@ async function fetchMarketData() {
     const startDate = formatDate(past);
     const endDate = formatDate(today);
     
-    // Fetch History from Frankfurter API (Reliable ECB historical data)
-    const response = await fetch(`https://api.frankfurter.app/${startDate}..${endDate}?from=USD&to=BRL,EUR`);
+    // Fetch History via our Vercel Proxy to avoid CORS issues
+    const response = await fetch(`/api/history?start=${startDate}&end=${endDate}`);
     const histData = await response.json();
     
     if (histData.rates) {
