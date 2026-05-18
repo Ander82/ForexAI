@@ -539,6 +539,7 @@ Responda APENAS com o JSON válido, sem marcadores markdown \`\`\`json.`;
     const newPreds = result.predictions.map(p => ({
       id: Date.now() + Math.random(),
       date: new Date().toISOString().split('T')[0],
+      timestamp: Date.now(),
       period: period,
       ...p,
       status: 'pending' // pending, correct, wrong
@@ -582,18 +583,55 @@ function renderPredictions(predictions) {
   });
 }
 
+window.autoGeneratePrediction = function(period) {
+  document.getElementById('pred-period').value = period;
+  document.getElementById('pred-currency').value = 'both';
+  generatePrediction();
+};
+
 function filterPredictionsByPeriod(period) {
   const filtered = state.predictions.filter(p => p.period === period && p.status === 'pending');
   
   if (filtered.length > 0) {
-    renderPredictions(filtered);
+    // Sort by newest first using timestamp or fallback to ID
+    filtered.sort((a, b) => (b.timestamp || b.id) - (a.timestamp || a.id));
+    
+    // We only care about the latest ones for this period (usually USD and EUR, so the top 2)
+    const latestBatch = filtered.slice(0, 2);
+    const latestTimestamp = latestBatch[0].timestamp || latestBatch[0].id;
+    const isStale = (Date.now() - latestTimestamp) > (10 * 60 * 1000); // 10 minutes
+    
+    renderPredictions(latestBatch);
+    
+    // If it's older than 10 minutes, show a prominent warning to update
+    if (isStale) {
+      const banner = document.createElement('div');
+      banner.className = 'stale-banner';
+      banner.innerHTML = `
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); padding: 16px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">⏱️</span>
+            <div>
+              <strong style="color: var(--warning); display: block; font-size: 14px;">Previsão Desatualizada</strong>
+              <span style="font-size: 13px; color: var(--text-muted);">Estes dados têm mais de 10 minutos. O mercado pode ter mudado.</span>
+            </div>
+          </div>
+          <button class="btn-primary small" onclick="autoGeneratePrediction('${period}')">
+            <span>↻</span> Atualizar Previsão
+          </button>
+        </div>
+      `;
+      els.predictionGrid.appendChild(banner);
+    }
   } else {
-    // Show empty state asking to generate
+    // Show empty state with a 1-click generate button
     els.predictionGrid.innerHTML = `
       <div class="ai-placeholder">
         <div class="ai-placeholder-icon">🔮</div>
         <p>Nenhuma previsão pendente para este período.</p>
-        <p style="font-size: 13px; margin-top: 8px;">Use o botão <strong>"Gerar Previsão com IA"</strong> abaixo para realizar uma nova análise.</p>
+        <button class="btn-primary" style="margin-top: 16px; margin-left: auto; margin-right: auto;" onclick="autoGeneratePrediction('${period}')">
+          <span>⚡</span> Gerar Previsão Agora
+        </button>
       </div>
     `;
   }
