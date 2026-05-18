@@ -537,9 +537,7 @@ Responda APENAS com o JSON válido, sem marcadores markdown \`\`\`json.`;
     if (!jsonMatch) throw new Error('No JSON found in response');
     const result = JSON.parse(jsonMatch[0]);
     
-    renderPredictions(result.predictions);
-    
-    // Save to predictions state
+    // Map new predictions with unique IDs and metadata first
     const newPreds = result.predictions.map(p => ({
       id: Date.now() + Math.random(),
       date: new Date().toISOString().split('T')[0],
@@ -548,6 +546,9 @@ Responda APENAS com o JSON válido, sem marcadores markdown \`\`\`json.`;
       ...p,
       status: 'pending' // pending, correct, wrong
     }));
+    
+    // Now render them
+    renderPredictions(newPreds);
     
     state.predictions = [...newPreds, ...state.predictions];
     localStorage.setItem('forex_predictions', JSON.stringify(state.predictions));
