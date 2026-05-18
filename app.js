@@ -341,9 +341,10 @@ async function fetchMarketData() {
     
     const formatDate = (d) => d.toISOString().split('T')[0];
     const startDate = formatDate(past);
+    const endDate = formatDate(today);
     
     // Fetch History from Frankfurter API (Reliable ECB historical data)
-    const response = await fetch(`https://api.frankfurter.app/${startDate}..?from=USD&to=BRL,EUR`);
+    const response = await fetch(`https://api.frankfurter.app/${startDate}..${endDate}?from=USD&to=BRL,EUR`);
     const histData = await response.json();
     
     if (histData.rates) {
