@@ -65,9 +65,8 @@
     <div class="sidebar-footer">
       <div class="ai-status" id="ai-status-badge">
         <span class="status-dot offline"></span>
-        <span class="status-text">IA Offline</span>
+        <span class="status-text">IA Conectada</span>
       </div>
-      <button class="btn-config" id="open-config-btn">⚙️ Configurar API</button>
     </div>
   </aside>
 
@@ -199,36 +198,37 @@
               <span class="panel-badge" id="ai-panel-status">Offline</span>
             </div>
             <div class="ai-analysis-content" id="ai-analysis-content">
-              <div class="ai-placeholder">
-                <div class="ai-placeholder-icon">🔮</div>
-                <p>Configure a API Gemini para receber análises de mercado em tempo real com recomendações de compra precisas.</p>
-                <button class="btn-primary small" id="configure-ai-btn">Configurar IA</button>
+              <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <p>Gerando insights do mercado...</p>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- MARKET INDICATORS -->
-        <div class="indicators-row">
-          <div class="indicator-card">
-            <div class="ind-label">Volatilidade USD/BRL</div>
-            <div class="ind-value" id="ind-volatility-usd">—</div>
-            <div class="ind-bar"><div class="ind-fill usd-fill" id="bar-vol-usd" style="width:0%"></div></div>
+        <!-- BUYING OPPORTUNITIES -->
+        <div class="opportunities-card">
+          <div class="opp-header">
+            <h3>⭐ Melhores Datas Previstas para Compra</h3>
+            <span class="opp-badge">Análise IA Ativa</span>
           </div>
-          <div class="indicator-card">
-            <div class="ind-label">Volatilidade EUR/BRL</div>
-            <div class="ind-value" id="ind-volatility-eur">—</div>
-            <div class="ind-bar"><div class="ind-fill eur-fill" id="bar-vol-eur" style="width:0%"></div></div>
-          </div>
-          <div class="indicator-card">
-            <div class="ind-label">Momento de Compra USD</div>
-            <div class="ind-value" id="ind-buy-usd">—</div>
-            <div class="ind-bar"><div class="ind-fill success-fill" id="bar-buy-usd" style="width:0%"></div></div>
-          </div>
-          <div class="indicator-card">
-            <div class="ind-label">Momento de Compra EUR</div>
-            <div class="ind-value" id="ind-buy-eur">—</div>
-            <div class="ind-bar"><div class="ind-fill success-fill" id="bar-buy-eur" style="width:0%"></div></div>
+          <div class="opp-grid">
+            <div class="opp-item usd">
+              <div class="opp-currency"><span class="flag">🇺🇸</span> Dólar (USD)</div>
+              <div class="opp-content">
+                <div class="opp-date" id="best-buy-date-usd">Analisando tendências...</div>
+                <div class="opp-price" id="best-buy-price-usd">R$ --,---</div>
+              </div>
+              <div class="opp-reason" id="best-buy-reason-usd">A IA está processando o histórico e eventos futuros para encontrar o melhor ponto de entrada.</div>
+            </div>
+            <div class="opp-item eur">
+              <div class="opp-currency"><span class="flag">🇪🇺</span> Euro (EUR)</div>
+              <div class="opp-content">
+                <div class="opp-date" id="best-buy-date-eur">Analisando tendências...</div>
+                <div class="opp-price" id="best-buy-price-eur">R$ --,---</div>
+              </div>
+              <div class="opp-reason" id="best-buy-reason-eur">A IA está processando o histórico e eventos futuros para encontrar o melhor ponto de entrada.</div>
+            </div>
           </div>
         </div>
 

@@ -338,12 +338,64 @@ function updateDashboardUI() {
     els.signalEur.textContent = diff < -0.05 ? 'COMPRA' : (diff > 0.05 ? 'VENDA' : 'NEUTRO');
   }
   
-  // Indicators
-  document.getElementById('ind-volatility-usd').textContent = 'Média';
-  document.getElementById('bar-vol-usd').style.width = '45%';
+  // Best Buy Card
+  updateBestBuyCard();
   
   updateSparkline('USD', state.history.USD);
   updateSparkline('EUR', state.history.EUR);
+}
+
+function updateBestBuyCard() {
+  const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 3 });
+  
+  const usds = state.predictions.filter(p => p.currency === 'USD' && p.chartData);
+  const eurs = state.predictions.filter(p => p.currency === 'EUR' && p.chartData);
+  
+  function getBest(preds) {
+    if(!preds.length) return null;
+    preds.sort((a,b) => (b.timestamp||b.id) - (a.timestamp||a.id));
+    const latest = preds[0];
+    
+    let bestPoint = null;
+    latest.chartData.forEach(d => {
+      if(d.buySignal) {
+        if(!bestPoint || d.price < bestPoint.price) {
+          bestPoint = d;
+        }
+      }
+    });
+    
+    if(!bestPoint) {
+      latest.chartData.forEach(d => {
+        if(!bestPoint || d.price < bestPoint.price) {
+          bestPoint = d;
+        }
+      });
+    }
+    return bestPoint;
+  }
+  
+  const bestUsd = getBest(usds);
+  if(bestUsd) {
+    document.getElementById('best-buy-date-usd').textContent = bestUsd.date;
+    document.getElementById('best-buy-price-usd').textContent = fmt.format(bestUsd.price);
+    document.getElementById('best-buy-reason-usd').textContent = bestUsd.reasoning;
+  } else {
+    document.getElementById('best-buy-date-usd').textContent = 'Análise Pendente';
+    document.getElementById('best-buy-price-usd').textContent = 'R$ --,---';
+    document.getElementById('best-buy-reason-usd').textContent = 'Gere uma previsão na aba "Previsões" para ver a melhor data de compra.';
+  }
+  
+  const bestEur = getBest(eurs);
+  if(bestEur) {
+    document.getElementById('best-buy-date-eur').textContent = bestEur.date;
+    document.getElementById('best-buy-price-eur').textContent = fmt.format(bestEur.price);
+    document.getElementById('best-buy-reason-eur').textContent = bestEur.reasoning;
+  } else {
+    document.getElementById('best-buy-date-eur').textContent = 'Análise Pendente';
+    document.getElementById('best-buy-price-eur').textContent = 'R$ --,---';
+    document.getElementById('best-buy-reason-eur').textContent = 'Gere uma previsão na aba "Previsões" para ver a melhor data de compra.';
+  }
 }
 
 // === CHARTS === //
@@ -561,6 +613,8 @@ Responda APENAS com o JSON válido, sem marcadores markdown \`\`\`json.`;
     document.querySelectorAll('.pred-tab').forEach(t => {
       t.classList.toggle('active', t.dataset.period === period);
     });
+    
+    updateBestBuyCard();
     
   } catch(err) {
     console.error(err);
