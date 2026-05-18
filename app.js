@@ -502,11 +502,11 @@ async function generatePrediction() {
   
   els.predictionGrid.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div><p>A IA está analisando o mercado. Isso pode levar alguns segundos...</p></div>';
   
-  let promptContext = `Moeda alvo: ${currency === 'both' ? 'USD e EUR' : currency}. Período: ${period}.`;
+  let promptContext = `Moeda alvo: ${currency === 'both' ? 'USD e EUR' : currency}. Período: ${period}. Data de Hoje: ${new Date().toLocaleDateString('pt-BR')}.`;
   if(context) promptContext += `\nContexto externo fornecido pelo usuário: "${context}"`;
   
   const prompt = `Você é um modelo preditivo de câmbio cambial BRL.
-Cotações de hoje: USD ${state.rates.USD.toFixed(3)}, EUR ${state.rates.EUR.toFixed(3)}.
+Cotações atuais: USD ${state.rates.USD.toFixed(3)}, EUR ${state.rates.EUR.toFixed(3)}.
 ${promptContext}
 
 Gere uma previsão de preço estruturada como JSON com os seguintes campos:
@@ -520,8 +520,8 @@ Gere uma previsão de preço estruturada como JSON com os seguintes campos:
       "confidence": "porcentagem ex: 75%",
       "reasoning": "Texto com o raciocínio baseado nos dados e contexto",
       "chartData": [
-        { "date": "ex: Seg (19/05)", "price": 5.12, "reasoning": "Abertura com pressão de compra", "buySignal": false },
-        { "date": "ex: Qua (21/05)", "price": 5.08, "reasoning": "Correção técnica esperada", "buySignal": true }
+        { "date": "Data real futura (ex: Seg 20/05)", "price": 5.12, "reasoning": "Abertura com pressão de compra", "buySignal": false },
+        { "date": "Data real futura (ex: Qua 22/05)", "price": 5.08, "reasoning": "Correção técnica esperada", "buySignal": true }
       ]
     }
   ]
