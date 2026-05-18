@@ -1,6 +1,6 @@
 // App State
 const state = {
-  apiKey: localStorage.getItem('gemini_api_key') || '',
+  aiConnected: false,
   rates: { USD: null, EUR: null },
   history: JSON.parse(localStorage.getItem('forex_history')) || { USD: [], EUR: [] },
   predictions: JSON.parse(localStorage.getItem('forex_predictions')) || [],
@@ -62,7 +62,7 @@ const els = {
 // Initialize
 function init() {
   setupEventListeners();
-  checkApiKey();
+  checkServerConnection();
   updateClock();
   setInterval(updateClock, 1000);
   
@@ -105,19 +105,25 @@ function setupEventListeners() {
   });
 }
 
-function checkApiKey() {
-  if (state.apiKey) {
-    hideModal();
-    updateAiStatus(true);
-  } else {
-    showModal();
+async function checkServerConnection() {
+  try {
+    const res = await callGemini('Responda apenas: OK');
+    if (res) {
+      state.aiConnected = true;
+      hideModal();
+      updateAiStatus(true);
+      showToast('IA conectada com sucesso via servidor seguro!', 'success');
+    }
+  } catch (err) {
+    state.aiConnected = false;
     updateAiStatus(false);
+    hideModal();
+    showToast('Servidor IA indisponível. Verifique a configuração.', 'error');
   }
 }
 
 function showModal() {
   els.configModal.classList.remove('hidden');
-  els.apiKeyInput.value = state.apiKey;
 }
 
 function hideModal() {
@@ -125,18 +131,9 @@ function hideModal() {
 }
 
 function saveApiKey() {
-  const key = els.apiKeyInput.value.trim();
-  if (key) {
-    state.apiKey = key;
-    localStorage.setItem('gemini_api_key', key);
-    hideModal();
-    updateAiStatus(true);
-    showToast('API Key salva com sucesso! IA ativada.', 'success');
-    // Run analysis if on dashboard
-    if(state.activeView === 'dashboard') runQuickAnalysis();
-  } else {
-    showToast('Insira uma chave válida', 'error');
-  }
+  // No longer needed - key is on server
+  hideModal();
+  checkServerConnection();
 }
 
 function updateAiStatus(isOnline) {
@@ -236,7 +233,7 @@ async function fetchMarketData() {
       
       els.lastUpdateText.textContent = `Atualizado às ${new Date().toLocaleTimeString('pt-BR')}`;
       
-      if(state.apiKey) {
+      if(state.aiConnected) {
         runQuickAnalysis();
       }
     }
@@ -397,27 +394,23 @@ function updateMainChart(currency) {
 // === GEMINI AI INTEGRATION === //
 
 async function callGemini(prompt) {
-  if (!state.apiKey) throw new Error('API Key missing');
-  
+  // All calls go through the secure server proxy - API key never leaves the server
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`, {
+    const response = await fetch('/api/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2 }
-      })
+      body: JSON.stringify({ prompt })
     });
     
-    if(!response.ok) throw new Error(`API Error: ${response.status}`);
+    if(!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Server Error: ${response.status}`);
+    }
     
     const data = await response.json();
-    // Gemini 2.5 returns multiple parts (thinking + text). Get the last text part.
-    const parts = data.candidates[0].content.parts;
-    const textPart = parts.filter(p => p.text !== undefined).pop();
-    return textPart ? textPart.text : parts[0].text;
+    return data.text;
   } catch (err) {
-    console.error(err);
+    console.error('Gemini proxy error:', err);
     throw err;
   }
 }
@@ -466,9 +459,8 @@ Seja extremamente objetivo e use formato markdown básico. Sem rodeios.`;
 }
 
 async function generatePrediction() {
-  if(!state.apiKey) {
-    showToast('Configure a API Key da Gemini primeiro.', 'warning');
-    showModal();
+  if(!state.aiConnected) {
+    showToast('Servidor IA não conectado. Verifique a configuração.', 'error');
     return;
   }
   
@@ -661,7 +653,7 @@ els.updateResultBtn.addEventListener('click', async () => {
   showToast(`Resultado registrado. IA iniciou aprendizado...`, 'info');
   
   // Simulate AI Learning
-  if(state.apiKey && pred.status === 'wrong') {
+  if(state.aiConnected && pred.status === 'wrong') {
     els.updateResultBtn.textContent = "🧠 IA está re-treinando as regras...";
     const prompt = `Você é um modelo preditivo.
 Previsão anterior: ${pred.currency} vai para ${pred.direction} (R$ ${pred.targetPrice}). Raciocínio original: ${pred.reasoning}.
