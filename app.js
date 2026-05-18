@@ -643,84 +643,97 @@ async function generatePrediction() {
     return;
   }
   
-  const currency = document.getElementById('pred-currency').value;
+  const currencySelected = document.getElementById('pred-currency').value;
   const period = document.getElementById('pred-period').value;
   const context = document.getElementById('pred-context').value;
   
-  els.predictionGrid.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div><p>A IA está analisando o mercado. Isso pode levar alguns segundos...</p></div>';
+  els.predictionGrid.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div><p>A IA está traçando a linha do tempo e rodando modelos independentes. Isso pode levar alguns segundos...</p></div>';
   
-  let promptContext = `Moeda alvo: ${currency === 'both' ? 'USD e EUR' : currency}. Período: ${period}. Data de Hoje: ${new Date().toLocaleDateString('pt-BR')}.`;
-  if(context) promptContext += `\nContexto externo fornecido pelo usuário: "${context}"`;
+  const currenciesToAnalyze = currencySelected === 'both' ? ['USD', 'EUR'] : [currencySelected];
   
-  const scoreUSD = calculateBuyScore('USD');
-  const scoreEUR = calculateBuyScore('EUR');
-  
-  const prompt = `Você é um modelo preditivo e analista quantitativo de câmbio BRL.
-Sua função é APENAS contextualizar e justificar a matemática, e gerar os alvos futuros.
+  try {
+    const promises = currenciesToAnalyze.map(async (curr) => {
+      const scoreData = calculateBuyScore(curr);
+      
+      let macroFocus = "";
+      if (curr === 'USD') {
+        macroFocus = "Concentre-se na política monetária do FED (Federal Reserve), juros americanos, DXY, inflação dos EUA e cenário fiscal do Brasil.";
+      } else {
+        macroFocus = "Concentre-se na política do Banco Central Europeu (BCE), inflação na Zona do Euro, força do EUR frente ao USD e fluxo comercial europeu.";
+      }
 
-Cotações atuais: USD ${state.rates.USD.toFixed(3)}, EUR ${state.rates.EUR.toFixed(3)}.
-Dados Quantitativos Calculados (USD): SMA(20)=${scoreUSD.sma}, RSI(14)=${scoreUSD.rsi}, Z-Score=${scoreUSD.zScore}, MathScore(0-100)=${scoreUSD.score}
-Dados Quantitativos Calculados (EUR): SMA(20)=${scoreEUR.sma}, RSI(14)=${scoreEUR.rsi}, Z-Score=${scoreEUR.zScore}, MathScore(0-100)=${scoreEUR.score}
+      let promptContext = `Moeda alvo exclusiva: ${curr}. Período: ${period}. Data de Hoje: ${new Date().toLocaleDateString('pt-BR')}.`;
+      if(context) promptContext += `\nContexto externo fornecido pelo usuário: "${context}"`;
+      
+      const prompt = `Você é um modelo preditivo e analista quantitativo de câmbio BRL.
+Sua função é gerar o comportamento futuro EXCLUSIVO para ${curr}/BRL.
+NÃO copie padrões de outras moedas. Crie uma linha do tempo realista para ESTA moeda.
+
+Cotação atual: ${curr} ${state.rates[curr].toFixed(3)}.
+Dados Quantitativos Calculados (${curr}): SMA(20)=${scoreData.sma}, RSI(14)=${scoreData.rsi}, Z-Score=${scoreData.zScore}, MathScore(0-100)=${scoreData.score}
 (Nota: MathScore é um algoritmo institucional. > 75 = Compra Forte, 60-74 = Compra Parcial, < 40 = Não Comprar).
 
+${macroFocus}
 ${promptContext}
 
 Gere uma previsão de preço estruturada como JSON com os seguintes campos:
 {
   "predictions": [
     {
-      "currency": "USD ou EUR",
+      "currency": "${curr}",
       "targetDate": "ex: Final desta semana",
       "targetPrice": "valor numérico exato previsto (ex: 5.120)",
       "direction": "UP ou DOWN ou STABLE",
       "confidence": "porcentagem ex: 75%",
-      "score_compra": "Apenas o número do MathScore fornecido acima (ex: 72)",
+      "score_compra": "${scoreData.score}",
       "acao_recomendada": "COMPRAR AGORA, AGUARDAR, ou COMPRAR PARCIAL",
       "estrategia": "Resumo da estratégia em 1 frase baseada no Score",
-      "reasoning": "Texto com o raciocínio justificando o cenário com base nos indicadores e contexto",
+      "reasoning": "Texto com o raciocínio justificando a movimentação (diferenciando os fatores de risco desta moeda específica)",
       "chartData": [
-        // CRÍTICO: VOCÊ DEVE GERAR EXATAMENTE 5 A 7 PONTOS DE DADOS FUTUROS, FORMANDO UMA LINHA DO TEMPO COMPLETA PARA O PERÍODO SOLICITADO.
-        // Apenas UM ponto deve ter "buySignal": true (representando o dia mais barato/melhor para compra). O restante deve ser false.
-        { "date": "Data futura (ex: Seg 20/05)", "price": 5.12, "reasoning": "Abertura de mercado", "buySignal": false },
-        { "date": "Data futura (ex: Ter 21/05)", "price": 5.10, "reasoning": "Início de correção técnica", "buySignal": false },
-        { "date": "Data futura (ex: Qua 22/05)", "price": 5.05, "reasoning": "Fundo técnico atingido, excelente suporte", "buySignal": true },
-        { "date": "Data futura (ex: Qui 23/05)", "price": 5.08, "reasoning": "Leve repique de alta", "buySignal": false }
+        // CRÍTICO: VOCÊ DEVE GERAR EXATAMENTE 5 A 7 PONTOS DE DADOS FUTUROS, FORMANDO UMA LINHA DO TEMPO COMPLETA.
+        // Crie volatilidade realista para a linha (altos e baixos lógicos).
+        // Apenas UM ponto deve ter "buySignal": true (representando o dia exato mais barato).
+        { "date": "Data futura", "price": 5.12, "reasoning": "Abertura de mercado", "buySignal": false },
+        { "date": "Data futura", "price": 5.05, "reasoning": "Fundo técnico atingido", "buySignal": true }
+        // ... (continue para completar 5 a 7 dias)
       ]
     }
   ]
 }
-Responda APENAS com o JSON válido, sem marcadores markdown \`\`\`json.`;
+Responda APENAS com o JSON válido, sem marcadores markdown.`;
 
-  try {
-    const text = await callGemini(prompt, true);
-    let result;
-    try {
-      result = JSON.parse(text);
-    } catch (parseError) {
-      // Fallback if Gemini accidentally included markdown even in JSON mode
-      let cleanJson = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-      const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);    
-      if (!jsonMatch) throw new Error('No JSON found in response');
-      result = JSON.parse(jsonMatch[0]);
-    }
+      const text = await callGemini(prompt, true);
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (parseError) {
+        let cleanJson = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+        const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);    
+        if (!jsonMatch) throw new Error('No JSON found in response');
+        parsed = JSON.parse(jsonMatch[0]);
+      }
+      return parsed.predictions[0];
+    });
+
+    // Aguarda a resolução paralela de todas as moedas
+    const generatedPredictions = await Promise.all(promises);
     
-    // Map new predictions with unique IDs and metadata first
-    const newPreds = result.predictions.map(p => ({
+    // Map new predictions with unique IDs and metadata
+    const newPreds = generatedPredictions.map(p => ({
       id: Date.now() + Math.random(),
       date: new Date().toISOString().split('T')[0],
       timestamp: Date.now(),
       period: period,
       ...p,
-      status: 'pending' // pending, correct, wrong
+      status: 'pending'
     }));
     
-    // Now render them
+    // Render and Save
     renderPredictions(newPreds);
     
     state.predictions = [...newPreds, ...state.predictions];
     localStorage.setItem('forex_predictions', JSON.stringify(state.predictions));
     
-    // Update active tab to match the generated period
     document.querySelectorAll('.pred-tab').forEach(t => {
       t.classList.toggle('active', t.dataset.period === period);
     });
