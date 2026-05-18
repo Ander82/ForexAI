@@ -60,14 +60,16 @@ const els = {
 };
 
 // Initialize
-function init() {
+async function init() {
   setupEventListeners();
-  checkServerConnection();
   updateClock();
   setInterval(updateClock, 1000);
   
   initCharts();
-  fetchMarketData();
+  
+  // Fetch market data first, then check AI connection
+  await fetchMarketData();
+  await checkServerConnection();
   
   // Refresh data every 10 minutes
   setInterval(fetchMarketData, 10 * 60 * 1000);
@@ -112,7 +114,11 @@ async function checkServerConnection() {
       state.aiConnected = true;
       hideModal();
       updateAiStatus(true);
-      showToast('IA conectada com sucesso via servidor seguro!', 'success');
+      showToast('IA conectada com sucesso!', 'success');
+      // Now that we're connected AND have rates, run analysis
+      if (state.rates.USD) {
+        runQuickAnalysis();
+      }
     }
   } catch (err) {
     state.aiConnected = false;
