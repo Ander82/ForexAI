@@ -5,6 +5,7 @@ const state = {
   history: JSON.parse(localStorage.getItem('forex_history')) || { USD: [], EUR: [] },
   predictions: JSON.parse(localStorage.getItem('forex_predictions')) || [],
   rules: JSON.parse(localStorage.getItem('forex_rules')) || [],
+  insights: JSON.parse(localStorage.getItem('forex_insights')) || [],
   activeView: 'dashboard',
   charts: { main: null, sparkUsd: null, sparkEur: null }
 };
@@ -56,7 +57,10 @@ const els = {
   
   // Learnings
   updateResultBtn: document.getElementById('update-result-btn'),
-  updatePredictionSelect: document.getElementById('update-prediction-select')
+  updatePredictionSelect: document.getElementById('update-prediction-select'),
+  generateInsightsBtn: document.getElementById('generate-insights-btn'),
+  insightsList: document.getElementById('insights-list'),
+  rulesList: document.getElementById('rules-list')
 };
 
 // Initialize
@@ -94,6 +98,7 @@ function setupEventListeners() {
     generatePrediction();
   });
   els.generatePredictionBtn.addEventListener('click', generatePrediction);
+  if (els.generateInsightsBtn) els.generateInsightsBtn.addEventListener('click', generateAdvancedInsights);
   
   if (els.planBuyBtn) els.planBuyBtn.addEventListener('click', calculateOpportunity);
   
@@ -625,6 +630,145 @@ function renderLearning() {
     opt.textContent = `${p.date} - ${p.currency} (Previsto: ${p.direction} p/ R$ ${p.targetPrice})`;
     select.appendChild(opt);
   });
+
+  renderInsights();
+  renderRules();
+}
+
+function renderRules() {
+  if (!els.rulesList) return;
+  els.rulesList.innerHTML = '';
+  
+  if (state.rules.length === 0) {
+    els.rulesList.innerHTML = `
+      <div class="rule-item default">
+        <div class="rule-number">R01</div>
+        <div class="rule-content">
+          <strong>Regra Base (Padrão)</strong>
+          <p>Analisa cotação atual vs. média histórica dos últimos 30 dias para identificar oportunidades de compra abaixo da média.</p>
+        </div>
+      </div>
+      <div class="rule-item default">
+        <div class="rule-number">R02</div>
+        <div class="rule-content">
+          <strong>Tendência de Curto Prazo (Padrão)</strong>
+          <p>Detecta padrões de alta/baixa nos últimos 7 dias para prever a tendência dos próximos 3 dias.</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  state.rules.forEach((rule, idx) => {
+    const div = document.createElement('div');
+    div.className = 'rule-item custom';
+    div.innerHTML = `
+      <div class="rule-number">R${(idx + 1).toString().padStart(2, '0')}</div>
+      <div class="rule-content">
+        <strong>Regra Aprendida via Feedback</strong>
+        <p>${rule.desc}</p>
+      </div>
+    `;
+    els.rulesList.appendChild(div);
+  });
+}
+
+function renderInsights() {
+  if (!els.insightsList) return;
+  
+  if (state.insights.length === 0) {
+    els.insightsList.innerHTML = `
+      <div class="ai-placeholder">
+        <div class="ai-placeholder-icon">📖</div>
+        <p>O modelo ainda não tem histórico suficiente para gerar insights. Clique em "Gerar novos insights" para que a IA realize uma pesquisa avançada.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  els.insightsList.innerHTML = state.insights.map(i => `
+    <div class="insight-card">
+      <div class="insight-header">
+        <span class="insight-type type-${i.type.toLowerCase()}">${i.type}</span>
+        <span class="insight-date">${i.date}</span>
+      </div>
+      <div class="insight-body">
+        <h4>${i.title}</h4>
+        <p>${i.description}</p>
+      </div>
+      <div class="insight-footer">
+        <span class="insight-action">💡 Ação recomendada: ${i.action}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function generateAdvancedInsights() {
+  if (!state.aiConnected) {
+    showToast('Conecte a IA primeiro para gerar insights.', 'error');
+    return;
+  }
+
+  els.generateInsightsBtn.textContent = 'Analisando Mercado...';
+  els.generateInsightsBtn.disabled = true;
+  
+  els.insightsList.innerHTML = `
+    <div class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>Buscando dados globais, analisando players do mercado e traçando paralelos históricos...</p>
+    </div>
+  `;
+
+  try {
+    const prompt = `Você é um Analista Quantitativo e Estrategista Chefe de um grande fundo de investimentos Global (Senior Institutional Trader).
+Sua missão: Realizar uma análise profunda e retroalimentar nosso sistema preditivo.
+Considere as seguintes informações do nosso sistema:
+- Cotação atual USD: R$ ${state.rates.USD || 'Desconhecida'}
+- Cotação atual EUR: R$ ${state.rates.EUR || 'Desconhecida'}
+- Número de regras ativas no sistema: ${state.rules.length}
+- Total de previsões no histórico: ${state.predictions.length}
+
+Instruções:
+Simule uma pesquisa em tempo real sobre os drivers macroeconômicos de hoje (taxa Selic, FED, BCE, commodities, risco geopolítico).
+Analise o comportamento do mercado real. Identifique oscilações de curto, médio e longo prazo.
+Crie 3 INSIGHTS acionáveis baseados no "smart money" (como grandes players estão se posicionando).
+Os tipos de insight devem ser: "CURTO PRAZO", "MÉDIO PRAZO", "LONGO PRAZO" ou "ALERTA DE VOLATILIDADE".
+
+Retorne APENAS um JSON estrito no seguinte formato:
+\`\`\`json
+[
+  {
+    "type": "CURTO PRAZO",
+    "title": "Título do insight",
+    "description": "Explicação macro e técnica profunda.",
+    "action": "Comprar Dólar fracionado nos próximos 3 dias, etc."
+  }
+]
+\`\`\`
+Não adicione nenhum texto antes ou depois do JSON.`;
+
+    const response = await callGemini(prompt);
+    
+    let cleanJson = response.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    const jsonMatch = cleanJson.match(/\[[\s\S]*\]/);    
+    if (!jsonMatch) throw new Error('No JSON found in response');
+    const newInsights = JSON.parse(jsonMatch[0]);
+    
+    const today = new Date().toLocaleDateString('pt-BR');
+    newInsights.forEach(i => i.date = today);
+    
+    state.insights = newInsights;
+    localStorage.setItem('forex_insights', JSON.stringify(state.insights));
+    
+    showToast('Insights gerados com sucesso!', 'success');
+  } catch (err) {
+    console.error('Insights error:', err);
+    showToast('Erro ao gerar insights. Tente novamente.', 'error');
+  } finally {
+    els.generateInsightsBtn.textContent = 'Gerar novos insights';
+    els.generateInsightsBtn.disabled = false;
+    renderInsights();
+  }
 }
 
 window.populateLearnForm = function(id) {

@@ -450,6 +450,21 @@ select:focus, input:focus { border-color: var(--accent-primary); background: rgb
 .rule-content strong { display: block; margin-bottom: 4px; font-size: 14px; }
 .rule-content p { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 
+/* Insight Cards */
+.insight-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; transition: transform 0.2s, box-shadow 0.2s; }
+.insight-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); border-color: rgba(139, 92, 246, 0.3); }
+.insight-header { display: flex; justify-content: space-between; align-items: center; }
+.insight-type { font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+.type-curto.prazo, .type-curto { background: rgba(59, 130, 246, 0.15); color: var(--accent-primary); border: 1px solid rgba(59, 130, 246, 0.3); }
+.type-médio.prazo, .type-médio { background: rgba(139, 92, 246, 0.15); color: var(--accent-secondary); border: 1px solid rgba(139, 92, 246, 0.3); }
+.type-longo.prazo, .type-longo { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+.type-alerta, .type-volatilidade { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+.insight-date { font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+.insight-body h4 { font-size: 15px; color: white; margin-bottom: 8px; line-height: 1.4; }
+.insight-body p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+.insight-footer { margin-top: 4px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); }
+.insight-action { font-size: 13px; font-weight: 600; color: #c4b5fd; display: block; }
+.rule-item.custom { border-color: var(--accent-secondary); background: rgba(139, 92, 246, 0.05); }
 /* Loaders & Toasts */
 .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 16px; color: var(--text-muted); }
 .loading-spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 1s linear infinite; }
